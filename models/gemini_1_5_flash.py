@@ -26,7 +26,7 @@ class GeminiModel(ModelInterface):
         input_tokens_count = response.usage_metadata.prompt_token_count
         output_tokens_count = response.usage_metadata.candidates_token_count
 
-        return response, input_tokens_count, output_tokens_count
+        return response.text, input_tokens_count, output_tokens_count
 
     async def review_content_async(self, review_text):
         # Gemini-specific logic for reviewing content

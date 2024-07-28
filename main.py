@@ -35,6 +35,7 @@ async def process_task(task, answer, pid, question, solver, model):
         'model_name': model.__class__.__name__,  # Get the model name
         'pid': pid,  # Assuming 'pid' is a unique identifier
         'question': question,
+        'ground_truth': answer,
         'model_response': model_response,
         'is_correct': int(is_correct),
         'duration': duration,
