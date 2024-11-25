@@ -165,3 +165,4 @@ repo.txt
 main copy.py
 testdata.csv
 evaluation_results*
+.DS_Store
