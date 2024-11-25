@@ -1,7 +1,6 @@
 # main.py
 import asyncio
 import pandas as pd
-from models.gpt4o_mini import GPT4OMiniModel
 from models.gemini_1_5_flash import GeminiModel
 from solvers.solver import MathProblemSolver
 from dotenv import load_dotenv
@@ -44,70 +43,59 @@ async def process_task(task, answer, pid, question, solver, model):
     }
     
 async def evaluate_model(model, df_test):
-    """
-    Evaluate the given model on the test DataFrame.
-
-    Args:
-        model: An instance of the model to evaluate.
-        df_test: The DataFrame containing the test data.
-    """
     solver = MathProblemSolver(model)
-
-    # Create a list to store tasks
     tasks = []
 
+    # Create tasks for all questions
     for _, row in df_test.iterrows():
-        image = row['decoded_image']  # Assuming this is how you access the image data
+        image = row['decoded_image']
         question = row['question']
-        
-        # Create a task for generating the solution
-        task = asyncio.create_task(solver.generate_solution(question, image))
+        task = solver.generate_solution(question, image)
         tasks.append((task, row['answer'], row['pid'], question))
 
-    # Wait for all tasks to complete
-    results = await asyncio.gather(*[process_task(task, answer, pid, question, solver, model) for task, answer, pid, question in tasks])
+    # Process all tasks concurrently
+    results = await asyncio.gather(
+        *(process_task(task, answer, pid, question, solver, model)
+          for task, answer, pid, question in tasks),
+        return_exceptions=True
+    )
+
+    # Filter out exceptions and count successful results
+    successful_results = [r for r in results if not isinstance(r, Exception)]
+    print(f"\nProcessing complete. Successfully processed {len(successful_results)}/{len(tasks)} rows.")
     
-    return results
+    return successful_results
 
 async def wait_with_progress(seconds):
     for _ in tqdm(range(seconds), desc="Waiting", unit="second"):
         await asyncio.sleep(1)
         
 async def main():
+    print("Loading test data...")
     df_test = pd.read_pickle('data/testdata.pkl')
+    print(f"Loaded {len(df_test)} test samples.")
     
-    # Instantiate the models
-    gpt4o_mini_model = GPT4OMiniModel(api_key=os.environ.get("OPENAI_API_KEY"))
-    gemini_model = GeminiModel("gemini-1.5-flash")
-    
-    # List of models to evaluate
-    models = [gemini_model, gpt4o_mini_model]
+    print("Initializing Gemini model...")
+    gemini_model = GeminiModel("gemini-1.5-flash-001")
 
-    # Create a list to hold all results
-    all_results = []
-
-    # Evaluate each model
-    for i, model in enumerate(models):
-        print(model.__class__.__name__)
-        is_last_model = (i == len(models) - 1)  # Check if this is the last model
-        model_results = await evaluate_model(model, df_test)
-        all_results.extend(model_results)
+    print("\nEvaluating Gemini model")
+    try:
+        model_results = await evaluate_model(gemini_model, df_test)
         
-        # Calculate accuracy for the current model
+        # Calculate and print accuracy
         correct_count = sum(result['is_correct'] for result in model_results)
         total_count = len(model_results)
         accuracy = correct_count / total_count if total_count > 0 else 0
-        print(f"Accuracy for {model.__class__.__name__}: {accuracy:.0%}")
+        print(f"Accuracy for Gemini model: {accuracy:.2%}")
+    except Exception as e:
+        print(f"Error evaluating Gemini model: {str(e)}")
 
-        if not is_last_model:
-            # Wait for 60 seconds to avoid exceeding API quota limit
-            await wait_with_progress(60)
+    print("\nCreating results DataFrame...")
+    results_df = pd.DataFrame(model_results)
+    print("Saving results...")
+    results_df.to_csv('data/evaluation_results_gemini_001.csv', index=False)
+    print("Results saved to data/evaluation_results_gemini_001.csv")
+    print("Evaluation complete!")
 
-    # Create a DataFrame from the results
-    results_df = pd.DataFrame(all_results)
-
-    # Write the results to a CSV file
-    results_df.to_csv('data/evaluation_results.csv', index=False)
-    
 if __name__ == "__main__":
     asyncio.run(main())

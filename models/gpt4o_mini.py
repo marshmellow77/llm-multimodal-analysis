@@ -22,7 +22,7 @@ class GPT4OMiniModel(ModelInterface):
         base64_string = base64_encoded.decode('utf-8')
 
         response = await self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": [
