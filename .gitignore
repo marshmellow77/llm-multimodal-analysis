@@ -162,3 +162,6 @@ cython_debug/
 #.idea/
 repo-to-text.py
 repo.txt
+main copy.py
+testdata.csv
+evaluation_results*
